@@ -24,21 +24,21 @@ chmod 644 "/etc/cockpit/cockpit.conf"
 
 if [[ $YNH_DEBIAN_VERSION == "bookworm" ]]
 then
-	chown root:$app "/etc/cockpit/cockpit.conf"
-	usermod -a -G cockpit cockpit-ws
-	usermod -a -G cockpit cockpit-wsinstance
+        chown root:$app "/etc/cockpit/cockpit.conf"
+        usermod -a -G cockpit cockpit-ws
+        usermod -a -G cockpit cockpit-wsinstance
 elif [[ $YNH_DEBIAN_VERSION == "trixie" ]]
 then
-	if ynh_app_upgrading_from_version_before 337~ynh5 \
-	&& find /usr/lib/systemd/system/cockpit* -type f -print | xargs grep -q '^DynamicUser=yes'
-	then
-		delete_system_user --username="cockpit-ws"
-		delete_system_user --username="cockpit-wsinstance"
-		delete_system_user --username="cockpit-session-socket"
-		delete_system_user --username="cockpit-wsinstance-socket"
-		delete_system_user --username="cockpit-systemd-service"
-	fi
-	myynh_handle_dynamicuser
+        if ynh_app_upgrading_from_version_before 337~ynh5 \
+        && find /usr/lib/systemd/system/cockpit* -type f -print | xargs grep -q '^DynamicUser=yes'
+        then
+                delete_system_user --username="cockpit-ws"
+                delete_system_user --username="cockpit-wsinstance"
+                delete_system_user --username="cockpit-session-socket"
+                delete_system_user --username="cockpit-wsinstance-socket"
+                delete_system_user --username="cockpit-systemd-service"
+        fi
+        myynh_handle_dynamicuser
 fi
 
 #=================================================
@@ -49,6 +49,44 @@ ynh_script_progression "Upgrading system configurations related to $app..."
 ynh_config_add_nginx
 
 yunohost service add $app --description="Sysadmin login session in a Web browser" --test_status="systemctl is-active $app.socket" --log="/var/log/$app/$app.log"
+
+#=================================================
+# DISABLE AUTH HEADER FORWARDING (issue #47)
+#=================================================
+# Cockpit performs its own authentication via PAM (pam_unix / pam_ldap).
+# If YunoHost injects Remote-User / Auth-User headers into the proxied
+# request, the SSO strips the login POST before cockpit-ws can validate
+# the password, resulting in HTTP 502 on every login attempt.
+# `main.auth_header = false` in manifest.toml handles fresh installs;
+# this block handles upgrades from versions that predate the setting.
+ynh_script_progression "Disabling auth header forwarding for $app..."
+
+# Newer YunoHost: yunohost user permission update --auth-header
+if yunohost user permission update "$app.main" --auth-header False >/dev/null 2>&1
+then
+        : # done
+else
+        # Older YunoHost: patch the LDAP permission entry directly.
+        # The LDAP admin DN/password is the same as the YunoHost admin password,
+        # which is stored in /etc/yunohost/.yunohost-ldap-password on legacy
+        # installs and exposed via the SLAPD rootpw config otherwise.
+        ldap_admin_dn="cn=admin,dc=yunohost,dc=org"
+        if [[ -r /etc/yunohost/.yunohost-ldap-password ]]
+        then
+                ldap_admin_pw="$(sudo cat /etc/yunohost/.yunohost-ldap-password 2>/dev/null)"
+        fi
+        if [[ -n "$ldap_admin_pw" ]]
+        then
+                ldapmodify -x -D "$ldap_admin_dn" -w "$ldap_admin_pw" >/dev/null 2>&1 <<EOF || true
+dn: cn=$app.main,ou=permission,dc=yunohost,dc=org
+changetype: modify
+replace: authHeader
+authHeader: FALSE
+EOF
+        fi
+fi
+
+yunohost app ssowatconf 2>/dev/null || true
 
 #=================================================
 # START SYSTEMD SERVICE
