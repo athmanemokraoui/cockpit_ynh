@@ -7,7 +7,7 @@ name = "Cockpit"
 description.en = "Sysadmin login session in a Web browser"
 description.fr = "Session de connexion sysadmin dans un navigateur Web"
 
-version = "337~ynh6"
+version = "337~ynh7"
 
 maintainers = ["ewilly"]
 
@@ -51,6 +51,12 @@ ram.runtime = "150M"
 
     [resources.permissions]
     main.url = "/"
+    # Cockpit performs its own authentication via PAM (pam_unix / pam_ldap),
+    # so YunoHost must NOT inject the Remote-User / Auth-User headers into the
+    # proxied request. With auth_header enabled (the YunoHost default), the
+    # SSO strips the login POST before cockpit-ws can validate the password,
+    # resulting in HTTP 502 on every login attempt.
+    main.auth_header = false
 
     [resources.ports]
     main.default = 9090
