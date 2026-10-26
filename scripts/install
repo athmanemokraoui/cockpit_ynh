@@ -17,12 +17,12 @@ chmod 644 "/etc/cockpit/cockpit.conf"
 
 if [[ $YNH_DEBIAN_VERSION == "bookworm" ]]
 then
-	chown root:$app "/etc/cockpit/cockpit.conf"
-	usermod -a -G cockpit cockpit-ws
-	usermod -a -G cockpit cockpit-wsinstance
+        chown root:$app "/etc/cockpit/cockpit.conf"
+        usermod -a -G cockpit cockpit-ws
+        usermod -a -G cockpit cockpit-wsinstance
 elif [[ $YNH_DEBIAN_VERSION == "trixie" ]]
 then
-	myynh_handle_dynamicuser
+        myynh_handle_dynamicuser
 fi
 
 #=================================================
@@ -33,6 +33,21 @@ ynh_script_progression "Adding system configurations related to $app..."
 ynh_config_add_nginx
 
 yunohost service add $app --description="Sysadmin login session in a Web browser" --test_status="systemctl is-active $app.socket" --log="/var/log/$app/$app.log"
+
+#=================================================
+# DISABLE AUTH HEADER FORWARDING
+#=================================================
+# Cockpit performs its own authentication via PAM (pam_unix / pam_ldap).
+# If YunoHost injects Remote-User / Auth-User headers into the proxied
+# request, the SSO strips the login POST before cockpit-ws can validate
+# the password, resulting in HTTP 502 on every login attempt.
+# `main.auth_header = false` in manifest.toml handles fresh installs on
+# recent YunoHost cores; this block ensures the setting is also applied
+# on older cores that predate the manifest key.
+ynh_script_progression "Disabling auth header forwarding for $app..."
+
+yunohost user permission update "$app.main" --auth-header False >/dev/null 2>&1 \
+        || true  # older YunoHost cores silently ignore this
 
 #=================================================
 # START SYSTEMD SERVICE
