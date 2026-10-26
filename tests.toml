@@ -9,3 +9,7 @@ test_format = 1.0
   # -------------------------------
 
   test_upgrade_from.a15f1deafc7d6b13cd369d4dd1d1fd51a2b0ae46.name = "Upgrade from 337~ynh4"
+
+  # ynh5 → ynh6: verify the DynamicUser drop-in / supplementary-group fix
+  # (issue #46: HTTP 502 on trixie after ynh5) survives an upgrade.
+  test_upgrade_from.1239ad4fa9b6ba44bfe601e0de1f6b09a075574f.name = "Upgrade from 337~ynh5"
