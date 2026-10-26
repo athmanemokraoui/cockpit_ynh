@@ -13,3 +13,7 @@ test_format = 1.0
   # ynh5 → ynh6: verify the DynamicUser drop-in / supplementary-group fix
   # (issue #46: HTTP 502 on trixie after ynh5) survives an upgrade.
   test_upgrade_from.1239ad4fa9b6ba44bfe601e0de1f6b09a075574f.name = "Upgrade from 337~ynh5"
+
+  # ynh6 → ynh7: verify the auth_header=false fix
+  # (HTTP 502 on every login attempt) survives an upgrade.
+  test_upgrade_from.1b7ac4f0a354675e341c05befa3af944b3b50edc.name = "Upgrade from 337~ynh6"
